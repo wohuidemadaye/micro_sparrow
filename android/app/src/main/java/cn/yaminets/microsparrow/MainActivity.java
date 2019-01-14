@@ -12,6 +12,8 @@ public class MainActivity extends FlutterActivity {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
       getWindow().setStatusBarColor(0);
     }
+    CookieManager cookieManager = CookieManager.getInstance();
+    cookieManager.setAcceptCookie(true);
     GeneratedPluginRegistrant.registerWith(this);
   }
 }

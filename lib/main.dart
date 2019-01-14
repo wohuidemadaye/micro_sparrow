@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:micro_sparrow/sparrow/Config.dart';
 import 'package:micro_sparrow/sparrow/EventEntity.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'package:micro_sparrow/sparrow/LoginWidget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 
 
@@ -33,11 +35,14 @@ class MyApp extends StatelessWidget {
       ),
       home: MyHomePage(title: '工作台'),
       routes: {
-        "/article":(_) => new WebviewScaffold(url: "http://www.baidu.com",
+        "/web_login":(_) => new WebviewScaffold(url: Config.login,
+        withLocalStorage: true,
+        userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36",
         appBar: new AppBar(
           centerTitle: true ,
           title: new Text("需求分配"),
         ),),
+        "/login":(_)=>new LoginPage(title: "test",),
       },
     );
   }
@@ -65,38 +70,21 @@ class MyHomePage extends StatefulWidget {
 
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
   EventEntity _event = new EventEntity();
   final flutterWebviewPlugin = new FlutterWebviewPlugin();
-
-
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  String cookie = "";
 
 
   @override
   void initState() {
     super.initState();
-    _getHttpData();
+    _readCookie();
   }
+
+
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return new DefaultTabController(length: 3,
         child:Scaffold(
           appBar: _getAppBar(),
@@ -229,7 +217,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         onTap: (){
           String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject.slug +  "/" + _event.data[position].subject.slug;
-          Navigator.of(context).pushNamed('/article');
+
         }
       );
   }
@@ -249,14 +237,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
    _getHttpData() async{
-     print("fuck");
-     Map<String,String> hearders;
-     hearders = getHeaders();
+    Map<String,String> hearders;
+    hearders = getHeaders();
     http.Response response = await http.get(Uri.parse("https://www.yuque.com/api/events?offset=0"),
         headers: hearders);
     var user1 = json.decode(response.body);
     setState(() {
       _event = new EventEntity.fromJson(user1);
+      if(_event.data.length == 0){
+        print("event is null ");
+        Navigator.of(context).pushNamed("/web_login");
+        _webViewLogin();
+      }
     });
   }
 
@@ -285,7 +277,6 @@ class _MyHomePageState extends State<MyHomePage> {
         IconButton(
           icon: Icon(Icons.add,color: Colors.white,),
           onPressed: (){
-            _incrementCounter();
           },
         )
       ],
@@ -318,7 +309,36 @@ class _MyHomePageState extends State<MyHomePage> {
     Map<String,String> hearders = new Map();
     hearders["Content-Type"] = "application/x-www-form-urlencoded";
     hearders["User-Agent"] = "sparrow";
-    hearders["cookie"] = Config.cookie;
+    hearders["cookie"] = cookie;
     return hearders;
   }
+
+  void _webViewLogin() {
+    flutterWebviewPlugin.getCookies();
+    flutterWebviewPlugin.onUrlChanged.listen((String url){
+      flutterWebviewPlugin.getCookies().then((Map<dynamic,dynamic> map){
+        print(map);
+      });
+      flutterWebviewPlugin.evalJavascript("document.session").then((String test){
+        print("hello" + test );
+      });
+      var _uri = Uri.parse(url);
+      print(_uri.path);
+      if(_uri.path == "/dashboard"){
+        print("登陆成功");
+      }
+    });
+  }
+
+  void _saveCookie() async {
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    preferences.setString("cookies", cookie);
+  }
+
+  void _readCookie() async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    cookie = preferences.getString("cookies");
+    _getHttpData();
+  }
+
 }
