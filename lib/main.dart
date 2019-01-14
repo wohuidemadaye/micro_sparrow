@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -73,6 +74,8 @@ class _MyHomePageState extends State<MyHomePage> {
   EventEntity _event = new EventEntity();
   final flutterWebviewPlugin = new FlutterWebviewPlugin();
   String cookie = "";
+  static const platform = const MethodChannel('samples.flutter.io/cookies');
+
 
 
   @override
@@ -80,6 +83,8 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _readCookie();
   }
+
+
 
 
 
@@ -314,18 +319,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _webViewLogin() {
-    flutterWebviewPlugin.getCookies();
     flutterWebviewPlugin.onUrlChanged.listen((String url){
-      flutterWebviewPlugin.getCookies().then((Map<dynamic,dynamic> map){
-        print(map);
-      });
-      flutterWebviewPlugin.evalJavascript("document.session").then((String test){
-        print("hello" + test );
-      });
       var _uri = Uri.parse(url);
       print(_uri.path);
       if(_uri.path == "/dashboard"){
         print("登陆成功");
+        _getAllCookies();
       }
     });
   }
@@ -339,6 +338,20 @@ class _MyHomePageState extends State<MyHomePage> {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     cookie = preferences.getString("cookies");
     _getHttpData();
+  }
+
+  Future<Null> _getAllCookies() async {
+    String batteryLevel;
+    try {
+      final String result = await platform.invokeMethod('getCookies');
+      batteryLevel = 'Battery level at $result % .';
+    } on PlatformException catch (e) {
+      batteryLevel = "Failed to get battery level: '${e.message}'.";
+    }
+
+    setState(() {
+      print(batteryLevel);
+    });
   }
 
 }

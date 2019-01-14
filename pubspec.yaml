@@ -19,6 +19,8 @@ dependencies:
   intl: ^0.15.7
   flutter_webview_plugin: ^0.3.0+2
   shared_preferences: ^0.4.3
+  webview_flutter: ^0.2.0
+
 
 
 
