@@ -1,13 +1,21 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:micro_sparrow/sparrow/Config.dart';
-import 'package:micro_sparrow/sparrow/EventEntity.dart';
+import 'package:micro_sparrow/Api.dart';
+import 'package:micro_sparrow/Utils/SparrowException.dart';
+import 'package:micro_sparrow/View/AllBookView.dart';
+import 'package:micro_sparrow/View/AllDocView.dart';
+import 'package:micro_sparrow/View/IMainView.dart';
+import 'package:micro_sparrow/View/TeamView.dart';
+import 'package:micro_sparrow/Widget/ColorLoader.dart';
+import 'package:micro_sparrow/Widget/ReadArticle.dart';
+import 'package:micro_sparrow/model/EventEntity.dart';
+import 'package:micro_sparrow/model/Doc_entity.dart';
+import 'package:micro_sparrow/model/ThirdData_entity.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
-import 'package:micro_sparrow/sparrow/LoginWidget.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:micro_sparrow/presenter/MainViewPresenter.dart';
 
 
 
@@ -36,14 +44,14 @@ class MyApp extends StatelessWidget {
       ),
       home: MyHomePage(title: '工作台'),
       routes: {
-        "/web_login":(_) => new WebviewScaffold(url: Config.login,
+        "/web_login":(_) => new WebviewScaffold(url: Api.login,
         withLocalStorage: true,
+        appCacheEnabled: true,
         userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36",
         appBar: new AppBar(
           centerTitle: true ,
-          title: new Text("需求分配"),
+          title: new Text("登录 · 语雀"),
         ),),
-        "/login":(_)=>new LoginPage(title: "test",),
       },
     );
   }
@@ -70,97 +78,132 @@ class MyHomePage extends StatefulWidget {
 
 
 
-class _MyHomePageState extends State<MyHomePage> {
-  EventEntity _event = new EventEntity();
-  final flutterWebviewPlugin = new FlutterWebviewPlugin();
-  String cookie = "";
-  static const platform = const MethodChannel('samples.flutter.io/cookies');
+class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin implements IMainView{
+  EventEntity _event;
+  DocEntity _doc;
+  ScrollController _scrollController = ScrollController();
+  ThirddataEntity _thirddataEntity = new ThirddataEntity();
+  FlutterWebviewPlugin _mWeb = new FlutterWebviewPlugin();
+  int position = 0;
+  TabController _tabController;
+  bool firstTab2 = true;
+  bool firstTab3 = true;
+  bool firstLoading = true;
+  bool secondLoading = true;
+  bool thirdLoading = true;
+
+  MainViewPresenter _presenter = new MainViewPresenter();
+
 
 
 
   @override
   void initState() {
     super.initState();
-    _readCookie();
+    _presenter.init(this);
+    _presenter.getEventHttpData();
+    _tabController = new TabController(vsync: this, length: 3);
+    _tabController.addListener((){
+      if(_tabController.index == 1 && firstTab2){
+        _presenter.getHistoryHttpData();
+        firstTab2 = false;
+      }else if(_tabController.index == 2 && firstTab3){
+        _presenter.getNesHttpData();
+        firstTab3 = false;
+      }
+    });
+    _mWeb.onUrlChanged.listen((String url){
+      var _uri = Uri.parse(url);
+      if(_uri.path == "/dashboard"){
+        _presenter.getAllCookies(_mWeb);
+        Navigator.of(context).pop();
+        print("登陆成功");
+      }
+    });
+
   }
 
-
+  @override
+  void dispose() {
+    super.dispose();
+    _tabController.dispose();
+    _scrollController.dispose();
+  }
 
 
 
   @override
   Widget build(BuildContext context) {
-    return new DefaultTabController(length: 3,
-        child:Scaffold(
-          appBar: _getAppBar(),
-          drawer: new Drawer(
-            child: new ListView(
-              padding: EdgeInsets.zero,
-              children: <Widget>[
-                new UserAccountsDrawerHeader(accountName: Text("yami"), accountEmail: Text("yaminet@sina.com"),
-                  currentAccountPicture: new GestureDetector(
-                    child: new CircleAvatar(
-                      backgroundImage: new ExactAssetImage("res/icon.jpg"),
-                    ),
+    _webViewLogin();
+    return Scaffold(
+        appBar: null,
+        drawer: new Drawer(
+          child: new ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              new UserAccountsDrawerHeader(accountName: Text("yami"), accountEmail: Text("yaminet@sina.com"),
+                currentAccountPicture: new GestureDetector(
+                  child: new CircleAvatar(
+                    backgroundImage: new ExactAssetImage("res/icon.jpg"),
                   ),
-                  decoration: new BoxDecoration(
-                      image: new DecorationImage(
-                        fit: BoxFit.cover,
-                        image: new ExactAssetImage("res/backgroup.jpg"),)
-                  ),),
-                new ListTile(
-                  title: new Text("工作台"),
-                  leading: new Icon(Icons.apps),
                 ),
-                new ListTile(
-                  title: new Text("团队"),
-                  leading: new Icon(Icons.people_outline),
-                ),
-                new ListTile(
-                  title: new Text("知识库"),
-                  leading: new Icon(Icons.book),
-                ),
-                new ListTile(
-                  title: new Text("文档"),
-                  leading: new Icon(Icons.event_note),
-                ),
-                new Divider(),
-                new ListTile(
-                  title: new Text("设置"),
-                  leading: new Icon(Icons.settings),
-                ),
-                new ListTile(
-                  title: new Text("关于"),
-                  leading: new Icon(Icons.web),
-                )
-              ],
-            ),
-          ),
-          body: new TabBarView(
-              children: <Widget>[
-                new Center(
-                  child: new ListView.builder(
-                    itemCount: _getLength(),
-                      itemBuilder: (BuildContext context,int position){
-                      return _getListData(position);
-                      })
-                ),
-                new Center(
-                  child: new ListView(
-                  children: _getHistoryData(),
+                decoration: new BoxDecoration(
+                    image: new DecorationImage(
+                      fit: BoxFit.cover,
+                      image: new ExactAssetImage("res/backgroup.jpg"),)
                 ),),
-                new Center(child:
-                    _getWebView()
-                ),
-          ]),
-        )
+              new ListTile(
+                onTap: (){
+                  Navigator.of(context).pop();
+                  setState(() {
+                    position = 0;
+                  });
+                },
+                selected: position == 0,
+                title: new Text("工作台"),
+                leading: new Icon(Icons.apps),
+              ),
+              new ListTile(
+                onTap: (){
+                  Navigator.of(context).pop();
+                  setState(() {
+                    position = 1;
+                  });
+                },
+                selected: position == 1,
+                title: new Text("团队"),
+                leading: new Icon(Icons.people_outline),
+              ),
+              new ListTile(
+                onTap: (){
+                  Navigator.of(context).pop();
+                  setState(() {
+                    position = 2;
+                  });
+                },
+                selected: position == 2,
+                title: new Text("知识库"),
+                leading: new Icon(Icons.book),
+              ),
+              new Divider(),
+              new ListTile(
+                title: new Text("设置"),
+                leading: new Icon(Icons.settings),
+              ),
+              new ListTile(
+                title: new Text("关于"),
+                leading: new Icon(Icons.web),
+              )
+            ],
+          ),
+        ),
+        body: _getFromIndex(position)
     );
 
   }
 
   _getListData(int position) {
-      return new GestureDetector(
-        child: new Card(
+        return new Card(
           shape: null,
           elevation: 0,
           child: new Padding(padding: new EdgeInsets.all(8.0),
@@ -208,54 +251,54 @@ class _MyHomePageState extends State<MyHomePage> {
                         softWrap: true,
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
-
                       ),
                       new Container(
                         alignment: Alignment.centerRight,
                         width: double.infinity,
-                        child: new FlatButton(onPressed: null, child: new Text("查看全文",style: new TextStyle(color: Colors.blue),)),)
+                        child: new FlatButton(
+                            onPressed: () {
+                              String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject.slug +  "/" + _event.data[position].subject.slug;
+                              String title = _event.data[position].subject.title;
+                              _readArticle(uri,title);
+                            },
+                            child: new Text("查看全文",style: new TextStyle(color: Colors.blue),))
+                        ,)
                     ],
                   ),
                 ],
               )
           ),
-        ),
-        onTap: (){
-          String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject.slug +  "/" + _event.data[position].subject.slug;
+        );
+  }
 
-        }
+  _getHistoryData(int position){
+      return new InkWell(
+        onTap: (){
+          String uri = "https://www.yuque.com/"+ _doc.data[position].book.user.login+ "/" + _doc.data[position].book.slug +  "/"+_doc.data[position].slug;
+          String title = _doc.data[position].title;
+          _readArticle(uri, title);
+          },
+        child: new Column(
+          children: <Widget>[
+            new ListTile(
+              leading: ifPublish(position),
+              title: new Text(_doc.data[position].title),
+              subtitle: new Text(_doc.data[position].book.user.name + "/" + _doc.data[position].book.name),
+            ),
+            new Divider(height: 1,)
+          ],
+        )
       );
   }
 
-  _getHistoryData() {
-    List<Widget> widgets = [];
-    for(int i=0;i<50;i++){
-      widgets.add(new ListTile(
-        leading: new Icon(Icons.event_note),
-        title: new Text("阿里 | 2020年阿里校招实习生"),
-        subtitle: new Text("2019春招备战....."),
-        trailing: Icon(Icons.edit),
-      ));
-      widgets.add(new Divider());
+  ifPublish(int position) {
+    if(_doc.data[position].status == 1){
+      return Icon(Icons.event_note,color: Colors.blue,);
+    }else{
+      return Icon(Icons.event_note,);
     }
-    return widgets;
   }
 
-   _getHttpData() async{
-    Map<String,String> hearders;
-    hearders = getHeaders();
-    http.Response response = await http.get(Uri.parse("https://www.yuque.com/api/events?offset=0"),
-        headers: hearders);
-    var user1 = json.decode(response.body);
-    setState(() {
-      _event = new EventEntity.fromJson(user1);
-      if(_event.data.length == 0){
-        print("event is null ");
-        Navigator.of(context).pushNamed("/web_login");
-        _webViewLogin();
-      }
-    });
-  }
 
   _getLength() {
     if(_event == null){
@@ -267,91 +310,248 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  _getNesLength(){
+    if(_thirddataEntity == null || _thirddataEntity.data == null){
+      return 0;
+    }else{
+      return _thirddataEntity.data.length;
+    }
+  }
+
   String _getTimeFormat(String updatedAt) {
     String s = updatedAt.split(".")[0].replaceAll("T", " ");
     return s;
   }
 
-  _getAppBar() {
-    return new AppBar(
-      // Here we take the value from the MyHomePage object that was created by
-      // the App.build method, and use it to set our appbar title.
-      title: Text(widget.title),
-      centerTitle: true,
-      actions: <Widget>[
-        IconButton(
-          icon: Icon(Icons.add,color: Colors.white,),
-          onPressed: (){
-          },
-        )
-      ],
-      bottom: new TabBar(
-        tabs: <Widget>[
-          new Tab(
-            //icon: new Icon(Icons.image_aspect_ratio),
-            text: "动态",
-          ),
-          new Tab(
-            //icon: new Icon(Icons.history),
-            text: "最近",
-          ),
-          new Tab(
-            //icon: new Icon(Icons.grain),
-            text: "发现",
-          )
-        ],
-      ),
-    );
-  }
-
-  _getWebView() {
-    return new Container(
-      color: Colors.blue,
-      child: null);
-  }
-
-  Map<String, String> getHeaders() {
-    Map<String,String> hearders = new Map();
-    hearders["Content-Type"] = "application/x-www-form-urlencoded";
-    hearders["User-Agent"] = "sparrow";
-    hearders["cookie"] = cookie;
-    return hearders;
-  }
 
   void _webViewLogin() {
-    flutterWebviewPlugin.onUrlChanged.listen((String url){
-      var _uri = Uri.parse(url);
-      print(_uri.path);
-      if(_uri.path == "/dashboard"){
-        print("登陆成功");
-        _getAllCookies();
+    FlutterWebviewPlugin flutterWebviewPlugin = new FlutterWebviewPlugin();
+    flutterWebviewPlugin.hide();
+    flutterWebviewPlugin.onStateChanged.listen((WebViewStateChanged type){
+      if(type.type == WebViewState.finishLoad) {
+        flutterWebviewPlugin.evalJavascript('document.querySelector("#ReactApp > div > div > div.m-content > div.m-header-back").style.display="none";').then((String result){
+            flutterWebviewPlugin.show();
+        });
       }
     });
   }
 
-  void _saveCookie() async {
-    SharedPreferences preferences = await SharedPreferences.getInstance();
-    preferences.setString("cookies", cookie);
+
+
+  Future<Null> _onEventRefresh() async {
+    _presenter.getEventHttpData();
   }
 
-  void _readCookie() async{
-    SharedPreferences preferences = await SharedPreferences.getInstance();
-    cookie = preferences.getString("cookies");
-    _getHttpData();
+
+  _readArticle(String uri,String title) {
+    Navigator.push(context, new MaterialPageRoute(builder: (BuildContext context){
+      return ReadArticle(url: uri);})
+    );
+
   }
 
-  Future<Null> _getAllCookies() async {
-    String batteryLevel;
-    try {
-      final String result = await platform.invokeMethod('getCookies');
-      batteryLevel = 'Battery level at $result % .';
-    } on PlatformException catch (e) {
-      batteryLevel = "Failed to get battery level: '${e.message}'.";
+  _getDocLength() {
+    if( _doc==null){
+      return 0;
+    }else if(_doc.data == null){
+      return 0;
     }
+    return _doc.data.length;
+  }
 
-    setState(() {
-      print(batteryLevel);
-    });
+  _getNewsListItem(int position) {
+    return new Container(
+      child: new Card(
+        elevation: 0,
+          child: new InkWell(
+              onTap: (){
+                String uri = "https://www.yuque.com/"+ _thirddataEntity.data[position].target.book.user.login + "/" + _thirddataEntity.data[position].target.book.slug +  "/"+_thirddataEntity.data[position].target.slug;
+                String title = _thirddataEntity.data[position].title;
+                _readArticle(uri, title);
+              },
+              child:new Padding(padding: const EdgeInsets.all(8),
+              child: new Column(
+                children: <Widget>[
+                  new Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      new Expanded(child: new Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          new Container(margin: EdgeInsets.only(bottom: 8),
+                            child: new Text(_thirddataEntity.data[position].title,style: new TextStyle(fontWeight: FontWeight.bold,fontSize: 16),),),
+                          new Text(_thirddataEntity.data[position].description,),
+                        ],
+                      )),
+                      _getPhoto(position),
+                    ],
+                  ),
+                  new Row(
+                    children: <Widget>[
+                      new Container(width: 20,height: 20,
+                        margin: EdgeInsets.only(top: 8,right: 8),
+                        child: new CircleAvatar(
+                          backgroundImage: new Image.network(_thirddataEntity.data[position].target.user.avatarUrl,).image,
+                        ),
+                      ),
+                      new Container(
+                        margin: EdgeInsets.only(top: 8,right: 8),
+                        child: new Text(_thirddataEntity.data[position].target.user.name,style: new TextStyle(color: Colors.grey[500]),),
+                      ),
+                      new Container(
+                        margin: EdgeInsets.only(left: 8,top: 8,right: 8),
+                        child: new Icon(Icons.access_time,size: 20,color: Colors.grey[500],),
+                      ),
+                      new Container(
+                        margin: EdgeInsets.only(top: 8),
+                        child: new Text(_thirddataEntity.data[position].updatedAt.substring(0,9),style: new TextStyle(color: Colors.grey[500]),softWrap: true,),
+                      )
+                    ],
+                  ),
+                ],
+              ))
+          )
+      ),
+    );
+  }
+
+  _getPhoto(int position) {
+    if(_thirddataEntity.data[position].cover != null){
+      return new Container(margin: EdgeInsets.only(left: 8),
+      child: new Image(image: new Image.network(_thirddataEntity.data[position].cover).image,width: 120,)
+        ,);
+    }else{
+      return new Text("");
+    }
+  }
+
+  _getFromIndex(int i) {
+    if(i==0){
+      return _dashboard();
+    }else if(i == 1){
+      return TeamView();
+    }else if(i==2){
+      return AllBookView();
+    }else if(i==3){
+      return AllDocView();
+    }
+  }
+
+  _dashboard(){
+    return new NestedScrollView(
+      headerSliverBuilder: (BuildContext context,bool innerBoxIsScrolled){
+        return <Widget>[
+          new SliverAppBar(
+            title: Text(widget.title),
+            forceElevated: innerBoxIsScrolled,
+            floating: true,
+            pinned: true,
+            centerTitle: true,
+            actions: <Widget>[
+              IconButton(
+                icon: Icon(Icons.add,color: Colors.white,),
+                onPressed: (){
+                },
+              )
+            ],
+            bottom: new TabBar(
+              tabs: <Widget>[
+                new Tab(
+                  //icon: new Icon(Icons.image_aspect_ratio),
+                  text: "动态",
+                ),
+                new Tab(
+                  //icon: new Icon(Icons.history),
+                  text: "最近",
+                ),
+                new Tab(
+                  //icon: new Icon(Icons.grain),
+                  text: "发现",
+                )
+              ],controller: _tabController,
+            ),
+          ),
+        ];
+      },
+      body: new TabBarView(
+        controller: _tabController,
+          children: <Widget>[
+            new RefreshIndicator(
+                child: Builder(builder: (BuildContext context){
+                  return new CustomScrollView(
+                    slivers: <Widget>[
+                      firstLoading ? SliverFillRemaining(child: new Center(child: ColorLoader(radius: 15,dotRadius: 6,),),):
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((BuildContext context,int position){
+                          return _getListData(position);
+                        },childCount: _getLength()
+                        ),
+                      )
+                    ],
+                  );
+                }),
+                onRefresh: _onEventRefresh),
+            new RefreshIndicator(
+                child: new CustomScrollView(
+                  slivers: <Widget>[
+                    secondLoading ? SliverFillRemaining(child: new Center(child: ColorLoader(radius: 15,dotRadius: 6,),),):
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((BuildContext context,int position){
+                        return _getHistoryData(position);
+                      },childCount: _getDocLength(),),
+                    )
+                  ],
+                ),
+                onRefresh: _onEventRefresh),
+            new RefreshIndicator(
+              child: new CustomScrollView(
+                slivers: <Widget>[
+                  thirdLoading ? SliverFillRemaining(child: new Center(child: ColorLoader(radius: 15,dotRadius: 6,),),):
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((BuildContext context,int position){
+                      return _getNewsListItem(position);
+                    },childCount: _getNesLength()),
+                  )
+                ],
+              ),
+              onRefresh: (){},
+            ),
+          ]),);
+  }
+
+  @override
+  void resultOfEvent(bool param0, param1, String s) {
+    if(param0){
+      setState(() {
+        _event = param1;
+        firstLoading = false;
+      });
+    }else{
+      print(s);
+    }
+    if(s == SparrowException.LOGIN){
+      Navigator.of(context).pushNamed("/web_login");
+    }
+  }
+
+  @override
+  void resultOfHistoryDoc(bool param0, DocEntity docEntity, String ok) {
+    if(param0){
+      setState(() {
+        _doc = docEntity;
+        secondLoading = false;
+      });
+    }
+  }
+
+  @override
+  void resultOfNews(bool param0, ThirddataEntity thirddataEntity, String ok) {
+    if(param0){
+      setState(() {
+        _thirddataEntity = thirddataEntity;
+        thirdLoading = false;
+      });
+    }
   }
 
 }
