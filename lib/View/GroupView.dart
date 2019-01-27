@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:micro_sparrow/View/BookView.dart';
 import 'package:micro_sparrow/View/IGroupView.dart';
+import 'package:micro_sparrow/View/SearchView.dart';
 import 'package:micro_sparrow/Widget/ColorLoader.dart';
+import 'package:micro_sparrow/Widget/ReadArticle.dart';
 import 'package:micro_sparrow/presenter/GroupPresenter.dart';
 import 'package:transparent_image/transparent_image.dart';
 import 'package:micro_sparrow/model/Group_entity.dart';
@@ -60,6 +62,9 @@ class _groupPage extends State<GroupView> implements IGroupView{
               IconButton(
                 icon: Icon(Icons.add,color: Colors.white,),
                 onPressed: (){
+                  Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context){
+                    return SearchView(id: widget.id,);
+                  }));
                 },
               )
             ],
@@ -199,7 +204,12 @@ class _groupPage extends State<GroupView> implements IGroupView{
         margin: EdgeInsets.only(left: 20,top: 8,right: 8,bottom: 8),
         child: new Text(_groupEntity.data[position].summary[mPosition].title,overflow: TextOverflow.ellipsis,),
       ),
-      onTap: (){},
+      onTap: (){
+        String url = "https://www.yuque.com/" + _groupEntity.data[position].user.login + "/" + _groupEntity.data[position].slug + "/" + _groupEntity.data[position].summary[mPosition].slug;
+        Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context){
+          return new ReadArticle(url: url,);
+        }));
+      },
     );
   }
 

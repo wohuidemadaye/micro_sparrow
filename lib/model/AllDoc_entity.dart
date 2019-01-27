@@ -47,12 +47,11 @@ class Data {
 	String firstPublishedAt;
 	num wordCount;
 	Book book;
-	String user;
 	LastEditor lastEditor;
 	dynamic share;
 	String sSerializer;
 
-	Data({this.id, this.spaceId, this.type, this.title, this.titleDraft, this.tag, this.slug, this.userId, this.bookId, this.lastEditorId, this.cover, this.description, this.customDescription, this.format, this.status, this.readStatus, this.public, this.draftVersion, this.commentsCount, this.likesCount, this.contentUpdatedAt, this.createdAt, this.updatedAt, this.publishedAt, this.firstPublishedAt, this.wordCount, this.book, this.user, this.lastEditor, this.share, this.sSerializer});
+	Data({this.id, this.spaceId, this.type, this.title, this.titleDraft, this.tag, this.slug, this.userId, this.bookId, this.lastEditorId, this.cover, this.description, this.customDescription, this.format, this.status, this.readStatus, this.public, this.draftVersion, this.commentsCount, this.likesCount, this.contentUpdatedAt, this.createdAt, this.updatedAt, this.publishedAt, this.firstPublishedAt, this.wordCount, this.book,  this.lastEditor, this.share, this.sSerializer});
 
 	Data.fromJson(Map<String, dynamic> json) {
 		id = json['id'];
@@ -82,7 +81,6 @@ class Data {
 		firstPublishedAt = json['first_published_at'];
 		wordCount = json['word_count'];
 		book = json['book'] != null ? new Book.fromJson(json['book']) : null;
-		user = json['user'];
 		lastEditor = json['last_editor'] != null ? new LastEditor.fromJson(json['last_editor']) : null;
 		share = json['share'];
 		sSerializer = json['_serializer'];
@@ -119,7 +117,6 @@ class Data {
 		if (this.book != null) {
       data['book'] = this.book.toJson();
     }
-		data['user'] = this.user;
 		if (this.lastEditor != null) {
       data['last_editor'] = this.lastEditor.toJson();
     }

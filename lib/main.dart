@@ -1,20 +1,20 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:micro_sparrow/Api.dart';
 import 'package:micro_sparrow/Utils/SparrowException.dart';
 import 'package:micro_sparrow/View/AllBookView.dart';
 import 'package:micro_sparrow/View/AllDocView.dart';
 import 'package:micro_sparrow/View/IMainView.dart';
+import 'package:micro_sparrow/View/NotificationView.dart';
 import 'package:micro_sparrow/View/TeamView.dart';
 import 'package:micro_sparrow/Widget/ColorLoader.dart';
 import 'package:micro_sparrow/Widget/ReadArticle.dart';
 import 'package:micro_sparrow/model/EventEntity.dart';
 import 'package:micro_sparrow/model/Doc_entity.dart';
+import 'package:micro_sparrow/model/Notification_entity.dart';
 import 'package:micro_sparrow/model/ThirdData_entity.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
+import 'package:micro_sparrow/model/UserInfo_entity.dart';
 import 'package:micro_sparrow/presenter/MainViewPresenter.dart';
 
 
@@ -31,28 +31,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '微语雀',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.green,
       ),
       home: MyHomePage(title: '工作台'),
-      routes: {
-        "/web_login":(_) => new WebviewScaffold(url: Api.login,
-        withLocalStorage: true,
-        appCacheEnabled: true,
-        userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36",
-        appBar: new AppBar(
-          centerTitle: true ,
-          title: new Text("登录 · 语雀"),
-        ),),
-      },
     );
   }
 }
@@ -81,9 +62,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin implements IMainView{
   EventEntity _event;
   DocEntity _doc;
-  ScrollController _scrollController = ScrollController();
-  ThirddataEntity _thirddataEntity = new ThirddataEntity();
-  FlutterWebviewPlugin _mWeb = new FlutterWebviewPlugin();
+  ThirddataEntity _thirddataEntity;
   int position = 0;
   TabController _tabController;
   bool firstTab2 = true;
@@ -91,8 +70,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   bool firstLoading = true;
   bool secondLoading = true;
   bool thirdLoading = true;
-
+  bool secondOver = false;
+  bool thirdOver = false;
+  bool loginFirst = true;
+  BuildContext scaffoldContext;
+  UserinfoEntity _userinfoEntity = new UserinfoEntity();
   MainViewPresenter _presenter = new MainViewPresenter();
+  var _scaffoldkey = new GlobalKey<ScaffoldState>();
+  NotificationEntity _notificationEntity;
+
 
 
 
@@ -101,7 +87,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _presenter.init(this);
+    _userinfoEntity.initData();
     _presenter.getEventHttpData();
+    _presenter.getNotification();
+    _presenter.getMyInfo();
     _tabController = new TabController(vsync: this, length: 3);
     _tabController.addListener((){
       if(_tabController.index == 1 && firstTab2){
@@ -112,22 +101,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         firstTab3 = false;
       }
     });
-    _mWeb.onUrlChanged.listen((String url){
-      var _uri = Uri.parse(url);
-      if(_uri.path == "/dashboard"){
-        _presenter.getAllCookies(_mWeb);
-        Navigator.of(context).pop();
-        print("登陆成功");
-      }
-    });
-
   }
 
   @override
   void dispose() {
     super.dispose();
     _tabController.dispose();
-    _scrollController.dispose();
   }
 
 
@@ -136,15 +115,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     _webViewLogin();
     return Scaffold(
-        appBar: null,
+      key: _scaffoldkey,
         drawer: new Drawer(
           child: new ListView(
             padding: EdgeInsets.zero,
             children: <Widget>[
-              new UserAccountsDrawerHeader(accountName: Text("yami"), accountEmail: Text("yaminet@sina.com"),
+              new UserAccountsDrawerHeader(accountName: Text(_userinfoEntity.data.name),
+                accountEmail: Text(_userinfoEntity.data.description  == null? "":_userinfoEntity.data.description),
                 currentAccountPicture: new GestureDetector(
                   child: new CircleAvatar(
-                    backgroundImage: new ExactAssetImage("res/icon.jpg"),
+                    backgroundImage: Image.network(_userinfoEntity.data.avatarUrl).image,
                   ),
                 ),
                 decoration: new BoxDecoration(
@@ -193,11 +173,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               new ListTile(
                 title: new Text("关于"),
                 leading: new Icon(Icons.web),
-              )
+              ),
+              _getLogOutView(),
             ],
           ),
         ),
-        body: _getFromIndex(position)
+        body: Builder(builder: (BuildContext context){
+          this.scaffoldContext = context;
+         return _getFromIndex(position);
+        })
     );
 
   }
@@ -272,6 +256,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   _getHistoryData(int position){
+      if(position == _doc.data.length-1 && !secondOver){
+        _presenter.getMoreDocData(_doc.data.length);
+      }
       return new InkWell(
         onTap: (){
           String uri = "https://www.yuque.com/"+ _doc.data[position].book.user.login+ "/" + _doc.data[position].book.slug +  "/"+_doc.data[position].slug;
@@ -285,7 +272,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               title: new Text(_doc.data[position].title),
               subtitle: new Text(_doc.data[position].book.user.name + "/" + _doc.data[position].book.name),
             ),
-            new Divider(height: 1,)
+            new Divider(height: 1,),
+            position == _doc.data.length-1 && !secondOver ? new ColorLoader(radius: 15,dotRadius: 6,) : new Container(),
           ],
         )
       );
@@ -326,7 +314,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void _webViewLogin() {
     FlutterWebviewPlugin flutterWebviewPlugin = new FlutterWebviewPlugin();
-    flutterWebviewPlugin.hide();
+    if(_event != null){
+      flutterWebviewPlugin.hide();
+    }
     flutterWebviewPlugin.onStateChanged.listen((WebViewStateChanged type){
       if(type.type == WebViewState.finishLoad) {
         flutterWebviewPlugin.evalJavascript('document.querySelector("#ReactApp > div > div > div.m-content > div.m-header-back").style.display="none";').then((String result){
@@ -334,12 +324,38 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         });
       }
     });
+    flutterWebviewPlugin.onUrlChanged.listen((String url){
+      var _uri = Uri.parse(url);
+      if(_uri.path == "/dashboard" && loginFirst){
+        loginFirst = false;
+        _presenter.getAllCookies(flutterWebviewPlugin);
+        Navigator.of(context).pop();
+        print("登陆成功");
+      }
+    });
   }
 
 
 
   Future<Null> _onEventRefresh() async {
-    _presenter.getEventHttpData();
+    await _presenter.getEventHttpData();
+    Scaffold.of(scaffoldContext).showSnackBar(
+        new SnackBar(content: new Text("更新数据成功",style: TextStyle(color: Colors.white),),backgroundColor: Colors.green,)
+    );
+  }
+
+  Future<Null> _onDocRefresh() async {
+    await _presenter.getHistoryHttpData();
+    Scaffold.of(scaffoldContext).showSnackBar(
+        new SnackBar(content: new Text("更新数据成功",style: TextStyle(color: Colors.white),),backgroundColor: Colors.green,)
+    );
+  }
+
+  Future<Null> _onNewsRefresh() async {
+    await _presenter.getNesHttpData();
+    Scaffold.of(scaffoldContext).showSnackBar(
+        new SnackBar(content: new Text("更新数据成功",style: TextStyle(color: Colors.white),),backgroundColor: Colors.green,)
+    );
   }
 
 
@@ -360,6 +376,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   _getNewsListItem(int position) {
+    if(position == _thirddataEntity.data.length-1 && !thirdOver){
+      _presenter.getMoreNewsData(_thirddataEntity.data.length);
+    }
     return new Container(
       child: new Card(
         elevation: 0,
@@ -408,6 +427,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       )
                     ],
                   ),
+                  position == _thirddataEntity.data.length-1 && !thirdOver  ? ColorLoader(radius: 16,dotRadius: 6,) : new Container(),
                 ],
               ))
           )
@@ -443,14 +463,18 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         return <Widget>[
           new SliverAppBar(
             title: Text(widget.title),
-            forceElevated: innerBoxIsScrolled,
             floating: true,
             pinned: true,
+            forceElevated: innerBoxIsScrolled,
             centerTitle: true,
             actions: <Widget>[
               IconButton(
-                icon: Icon(Icons.add,color: Colors.white,),
+                icon: _notificationEntity == null ? Icon(Icons.notifications,color: Colors.white,):
+                Icon(Icons.notifications_active),
                 onPressed: (){
+                  Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context){
+                    return new NotificationView();
+                  }));
                 },
               )
             ],
@@ -499,10 +523,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       delegate: SliverChildBuilderDelegate((BuildContext context,int position){
                         return _getHistoryData(position);
                       },childCount: _getDocLength(),),
-                    )
+                    ),
                   ],
                 ),
-                onRefresh: _onEventRefresh),
+                onRefresh: _onDocRefresh),
             new RefreshIndicator(
               child: new CustomScrollView(
                 slivers: <Widget>[
@@ -514,7 +538,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   )
                 ],
               ),
-              onRefresh: (){},
+              onRefresh: _onNewsRefresh,
             ),
           ]),);
   }
@@ -530,7 +554,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       print(s);
     }
     if(s == SparrowException.LOGIN){
-      Navigator.of(context).pushNamed("/web_login");
+      Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context){
+        return _loginView();
+      }));
     }
   }
 
@@ -554,4 +580,92 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  @override
+  void resultOfMoreDoc(bool param0, DocEntity entity, String ok) {
+    if(param0){
+      if(entity.data.length == 0){
+        secondOver = true;
+      }
+      setState(() {
+        _doc.data.addAll(entity.data);
+      });
+    }
+  }
+
+  @override
+  void resultOfMoreNews(bool param0, ThirddataEntity entity, String ok) {
+    if(param0){
+      if(entity.data.length == 0){
+        thirdOver = true;
+      }
+      setState(() {
+        _thirddataEntity.data.addAll(entity.data);
+      });
+    }
+  }
+
+  @override
+  void resultOfMyInfo(bool param0, UserinfoEntity entity, String ok) {
+    loginFirst = true;
+    if(param0){
+      setState(() {
+        _userinfoEntity.data = entity.data;
+      });
+    }
+  }
+
+  _getLogOutView() {
+    if(_event != null){
+      return ListTile(
+        onTap: (){
+          _presenter.clearAll();
+        },
+        title: Text("退出登陆"),
+      );
+    }else{
+      return new Container();
+    }
+  }
+
+  @override
+  void resultOfLogout() {
+    UserinfoEntity userinfoEntity =  new UserinfoEntity();
+    userinfoEntity.initData();
+    FlutterWebviewPlugin _mWeb = new FlutterWebviewPlugin();
+    _mWeb.cleanCookies();
+    setState(() {
+      _event = null;
+      _doc = null;
+      _userinfoEntity = userinfoEntity;
+    });
+    Navigator.of(context).pop();
+    Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context){
+      return _loginView();
+    }));
+  }
+
+  _loginView(){
+    return WebviewScaffold(url: Api.login,
+      withLocalStorage: true,
+      enableAppScheme: true,
+      withZoom: true,
+      withJavascript: true,
+      allowFileURLs: true,
+      userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36",
+      appBar:new AppBar(
+        leading: new Container(),
+        centerTitle: true ,
+        title: new Text("登录 · 语雀"),),
+      initialChild: new Center(child: ColorLoader(radius: 15,dotRadius: 6,),),
+      appCacheEnabled: true,);
+  }
+
+  @override
+  void resultOfNotification(bool param0, NotificationEntity entity, String ok) {
+    if(param0){
+      setState(() {
+        _notificationEntity = entity;
+      });
+    }
+  }
 }

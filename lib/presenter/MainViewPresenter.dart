@@ -7,12 +7,16 @@ import 'package:micro_sparrow/Utils/mvp.dart';
 import 'package:micro_sparrow/View/IMainView.dart';
 import 'package:micro_sparrow/model/Doc_entity.dart';
 import 'package:micro_sparrow/model/EventEntity.dart';
+import 'package:micro_sparrow/model/ExistToken_entity.dart';
+import 'package:micro_sparrow/model/Notification_entity.dart';
 import 'package:micro_sparrow/model/ThirdData_entity.dart';
 import 'package:micro_sparrow/model/Token_entity.dart';
+import 'package:micro_sparrow/model/UserInfo_entity.dart';
+import 'package:micro_sparrow/presenter/AbsPresenter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-class MainViewPresenter implements IPresenter{
+class MainViewPresenter extends AbsPresenter implements  IPresenter{
 
   IMainView _view;
   String _cookie = "";
@@ -30,12 +34,12 @@ class MainViewPresenter implements IPresenter{
     return;
   }
 
-  void getHistoryHttpData() async{
+  Future<Null> getHistoryHttpData() async{
     if(_cookie == null){
       _view.resultOfEvent(false,null,SparrowException.GET_COOKIES_FAIL);
       return;
     }
-    var result = await _getHttpData(Api.historyDoc);
+    var result = await _getHttpData(Api.historyDoc(0, 15));
     DocEntity docEntity = new DocEntity.fromJson(result);
     if(docEntity==null){
       _view.resultOfHistoryDoc(false,null,SparrowException.NETWORK_ERROR);
@@ -44,9 +48,10 @@ class MainViewPresenter implements IPresenter{
     }else{
       _view.resultOfHistoryDoc(true,docEntity,SparrowException.OK);
     }
+    return;
   }
 
-  void getEventHttpData() async{
+  Future<Null> getEventHttpData() async{
     await readCookie();
     if(_cookie == ""){
       _view.resultOfEvent(false,null,SparrowException.GET_COOKIES_FAIL);
@@ -65,6 +70,7 @@ class MainViewPresenter implements IPresenter{
     }else{
       _view.resultOfEvent(true,_event,SparrowException.OK);
     }
+    return;
   }
 
 
@@ -78,8 +84,9 @@ class MainViewPresenter implements IPresenter{
   }
 
 
-
-
+  ///
+  /// 添加请求头
+  ///
   Map<String, String> _getHeaders() {
     Map<String,String> hearders = new Map();
     hearders["Content-Type"] = "application/x-www-form-urlencoded";
@@ -88,11 +95,11 @@ class MainViewPresenter implements IPresenter{
     return hearders;
   }
 
-  void getNesHttpData() async{
+  Future<Null> getNesHttpData() async{
     if(_cookie == null){
       _view.resultOfEvent(false,null,SparrowException.GET_COOKIES_FAIL);
     }
-    var result = await _getHttpData(Api.news);
+    var result = await _getHttpData(Api.news(0));
     ThirddataEntity thirddataEntity = new ThirddataEntity.fromJson(result);
     if(thirddataEntity==null){
       _view.resultOfNews(false,null,SparrowException.NETWORK_ERROR);
@@ -101,6 +108,7 @@ class MainViewPresenter implements IPresenter{
     }else{
       _view.resultOfNews(true,thirddataEntity,SparrowException.OK);
     }
+    return;
   }
 
   void saveCookie() async {
@@ -112,18 +120,57 @@ class MainViewPresenter implements IPresenter{
     final String result = await flutterWebviewPlugin.getAllCookies("https://www.yuque.com/dashboard");
     _cookie = result;
     saveCookie();
-    _getToken();
+    await _getToken();
     getEventHttpData();
+    getMyInfo();
     getHistoryHttpData();
     getNesHttpData();
   }
 
-  void _getToken() async{
+  ///
+  /// 获取语雀的token
+  /// 
+  Future<Null> _getToken() async{
     SharedPreferences preferences = await SharedPreferences.getInstance();
     _token = preferences.getString("token");
-    if(_token == null && !_isExpire){
-      String postBody = '{"description":"微语雀","scope":"group:read,group,topic:'
-          'read,topic,repo:read,repo,doc:read,doc,artboard","type":"oauth"}';
+    if(_token == null  || _isExpire){
+      Map<String,dynamic> result =await _getHttpData(Api.getToken);
+      ExisttokenEntity existTokenEntity = ExisttokenEntity.fromJson(result);
+      if(existTokenEntity == null || existTokenEntity.data.length == 0){
+        _createToken();
+        return;
+      }
+      //获取语雀中已经存在的token值防止重复创建
+      for(int i = 0;i<existTokenEntity.data.length;i++){
+        if(existTokenEntity.data[i].description == "微语雀"){
+          Map<String,dynamic> result = await _getHttpData(Api.getTokenInfo(existTokenEntity.data[i].id.toString()));
+          TokenEntity exist = TokenEntity.fromJson(result);
+          _token = exist.data.token;
+          preferences.setString("token", exist.data.token);
+          return;
+        }
+      }
+      await _createToken();
+      return;
+    }
+
+  }
+
+  ///
+  /// 设置token是否有效，当用户自行删除token时，可以通过修改isExpire参数重新获取token
+  ///
+  void setTokenIsExpire(bool param){
+    this._isExpire = param;
+  }
+
+
+  ///
+  /// 创建token
+  ///
+  Future<Null> _createToken() async{
+      SharedPreferences preferences = await SharedPreferences.getInstance();
+      String postBody = '{"description":"微语雀","scope":"group:read,group,'
+          'topic:read,topic,repo:read,repo,doc:read,doc,artboard","type":"oauth"}';
       Map<String,String> headers = _getHeaders();
       headers['x-csrf-token'] = _cookie.split("ctoken=")[1].split(";")[0];
       headers['content-type'] = "application/json";
@@ -131,12 +178,71 @@ class MainViewPresenter implements IPresenter{
       Map<String,dynamic> result = json.decode(response.body);
       TokenEntity tokenEntity = TokenEntity.fromJson(result);
       preferences.setString("token", tokenEntity.data.token);
+  }
+
+  void getMoreDocData(int length) async{
+    if(_cookie == null){
+      _view.resultOfEvent(false,null,SparrowException.GET_COOKIES_FAIL);
+      return;
     }
+    var result = await _getHttpData(Api.historyDoc(length, 10));
+    DocEntity entity = new DocEntity.fromJson(result);
+    if(entity==null){
+      _view.resultOfMoreDoc(false,null,SparrowException.NETWORK_ERROR);
+    }else if(entity.data == null){
+      _view.resultOfMoreDoc(false,null,SparrowException.NULL_DATA);
+    }else{
+      _view.resultOfMoreDoc(true,entity,SparrowException.OK);
+    }
+  }
+
+  void getMoreNewsData(int length) async{
+    if(_cookie == null){
+      _view.resultOfEvent(false,null,SparrowException.GET_COOKIES_FAIL);
+      return;
+    }
+    var result = await _getHttpData(Api.news(length));
+    ThirddataEntity entity = new ThirddataEntity.fromJson(result);
+    if(entity==null){
+      _view.resultOfMoreNews(false,null,SparrowException.NETWORK_ERROR);
+    }else if(entity.data == null){
+      _view.resultOfMoreNews(false,null,SparrowException.NULL_DATA);
+    }else{
+      _view.resultOfMoreNews(true,entity,SparrowException.OK);
+    }
+  }
+
+  void getMyInfo() async{
+    var result = await getTokenHttpData(Api.getMyInfo());
+    UserinfoEntity entity = UserinfoEntity.fromJson(result);
+    if(entity == null || entity.data == null){
+      _view.resultOfMyInfo(false,null,SparrowException.NETWORK_ERROR);
+      return;
+    }
+    _view.resultOfMyInfo(true,entity,SparrowException.OK);
+  }
+
+  void clearAll() async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    _token = null;
+    _cookie = null;
+    preferences.setString("token", null);
+    preferences.setString("cookies", null);
+    _view.resultOfLogout();
+  }
+
+  void getUnReadNotifications(){
 
   }
 
-  void setTokenIsExpire(bool param){
-    this._isExpire = param;
+  void getNotification() async{
+    var result = await getCookieHttpData("https://www.yuque.com/api/notifications?offset=0&type=unread");
+    NotificationEntity entity =  NotificationEntity.fromJson(result);
+    if(entity == null || entity.data == null || entity.data.normalcount == 0){
+      _view.resultOfNotification(false,null,SparrowException.NETWORK_ERROR);
+      return;
+    }
+    _view.resultOfNotification(true,entity,SparrowException.OK);
   }
 
 

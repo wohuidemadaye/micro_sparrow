@@ -8,4 +8,7 @@ class SparrowException{
   static const String OK = "获取数据成功";
 
   static const String LOGIN = "请求登录";
+
+  static const String DEL_FAIL = "删除失败，请检查网络";
+
 }

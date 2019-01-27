@@ -20,6 +20,8 @@ dependencies:
   flutter_webview_plugin: ^0.3.0+2
   shared_preferences: ^0.4.3
   transparent_image: ^0.1.0
+  flutter_markdown: ^0.2.0
+  sqflite: ^1.0.0
 
 
 
