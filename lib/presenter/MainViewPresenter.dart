@@ -62,6 +62,7 @@ class MainViewPresenter extends AbsPresenter implements  IPresenter{
       return;
     }
     var result = await _getHttpData(Api.event);
+    print(result);
     EventEntity _event = new EventEntity.fromJson(result);
     if(_event==null){
       _view.resultOfEvent(false,null,SparrowException.NETWORK_ERROR);

@@ -4,6 +4,7 @@ import 'package:micro_sparrow/Api.dart';
 import 'package:micro_sparrow/Utils/SparrowException.dart';
 import 'package:micro_sparrow/View/AllBookView.dart';
 import 'package:micro_sparrow/View/AllDocView.dart';
+import 'package:micro_sparrow/View/BookView.dart';
 import 'package:micro_sparrow/View/IMainView.dart';
 import 'package:micro_sparrow/View/NotificationView.dart';
 import 'package:micro_sparrow/View/TeamView.dart';
@@ -191,66 +192,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           shape: null,
           elevation: 0,
           child: new Padding(padding: new EdgeInsets.all(8.0),
-              child: new Column(
-                children: <Widget>[
-                  new Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: <Widget>[
-                      new Row(
-                        children: <Widget>[
-                          new Container(
-                            margin: new EdgeInsets.only(right: 8),
-                            child:new Container(width: 20,height: 20,
-                              child: new CircleAvatar(
-                                backgroundImage: new Image.network(_event.data[position].actor.avatarUrl,).image,
-                              ),
-                            ),
-                          ),
-                          new Text(_event.data[position].actor.name + "在 " + _event.data[position].book.name + " 发布了" + "文档"),
-                        ],
-                      )
-                    ],
-                  ),
-                  new Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: <Widget>[
-                      new Divider(),
-                      new Row(
-                        children: <Widget>[
-                          new Container(
-                            margin: EdgeInsets.only(bottom: 8),
-                            child: new Text(_event.data[position].subject.title,style: new TextStyle(fontSize: 18,fontWeight: FontWeight.bold),),
-                          ),
-                          new Container(
-                            margin: EdgeInsets.only(left: 8),
-                            child: new Text(_getTimeFormat(_event.data[position].updatedAt),style: new TextStyle(color: Colors.grey),),
-                          )
-                        ],
-                      ),
-
-                      new Text(
-                        _event.data[position].subject.description,
-                        softWrap: true,
-                        maxLines: 5,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      new Container(
-                        alignment: Alignment.centerRight,
-                        width: double.infinity,
-                        child: new FlatButton(
-                            onPressed: () {
-                              String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject.slug +  "/" + _event.data[position].subject.slug;
-                              String title = _event.data[position].subject.title;
-                              _readArticle(uri,title);
-                            },
-                            child: new Text("查看全文",style: new TextStyle(color: Colors.blue),))
-                        ,)
-                    ],
-                  ),
-                ],
-              )
+              child: getContent(position)
           ),
         );
   }
@@ -667,5 +609,260 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         _notificationEntity = entity;
       });
     }
+  }
+
+  getContent(int position) {
+    if(_event.data[position].eventType == "publish_doc"){
+      return getPublishDoc(position);
+    }else if(_event.data[position].eventType == "watch_book"){
+      return getWatchBook(position);
+    }else if(_event.data[position].eventType == "follow_user"){
+      return getFollowUser(position);
+    }else if(_event.data[position].eventType == "like_doc"){
+      String eventType = _event.data[position].eventType;
+      return getLikeDoc(position);
+    }else{
+      String eventType = _event.data[position].eventType;
+      return new Center(child: new Text("暂不支持$eventType的事件类型，请向我反馈问题，谢谢",style: TextStyle(color: Colors.grey),),);
+    }
+  }
+
+  getPublishDoc(int position) {
+     return new Column(
+       children: <Widget>[
+         new Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           mainAxisAlignment: MainAxisAlignment.start,
+           children: <Widget>[
+             new Row(
+               children: <Widget>[
+                 new Container(
+                   margin: new EdgeInsets.only(right: 8),
+                   child:new Container(width: 20,height: 20,
+                     child: new CircleAvatar(
+                       backgroundImage: new Image.network(_event.data[position].actor.avatarUrl,).image,
+                     ),
+                   ),
+                 ),
+                 new Text(_event.data[position].actor.name + "在 " + _event.data[position].book.name + " 发布了" + "文档"),
+               ],
+             )
+           ],
+         ),
+         new Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           mainAxisAlignment: MainAxisAlignment.start,
+           children: <Widget>[
+             new Container(
+               margin: EdgeInsets.only(left: 28),
+               child: new Text(_getTimeFormat(_event.data[position].updatedAt),style: new TextStyle(color: Colors.grey,fontSize: 12),),
+             ),
+             new Divider(),
+             new Container(
+               width: double.infinity,
+               margin: EdgeInsets.only(bottom: 8),
+               child: new Text(_event.data[position].subject['title'],style: new TextStyle(fontSize: 18,fontWeight: FontWeight.bold),),
+             ),
+
+             new Text(
+               _event.data[position].subject['description'],
+               softWrap: true,
+               maxLines: 5,
+               overflow: TextOverflow.ellipsis,
+             ),
+             new Container(
+               alignment: Alignment.centerRight,
+               width: double.infinity,
+               child: new FlatButton(
+                   onPressed: () {
+                     String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject['slug'] +  "/" + _event.data[position].subject['slug'];
+                     String title = _event.data[position].subject['title'];
+                     _readArticle(uri,title);
+                   },
+                   child: new Text("查看全文",style: new TextStyle(color: Colors.blue),))
+               ,)
+           ],
+         ),
+       ],
+     );
+   }
+
+  getWatchBook(int position) {
+    return new Column(
+      children: <Widget>[
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Row(
+              children: <Widget>[
+                new Container(
+                  margin: new EdgeInsets.only(right: 8),
+                  child:new Container(width: 20,height: 20,
+                    child: new CircleAvatar(
+                      backgroundImage: new Image.network(_event.data[position].actor.avatarUrl,).image,
+                    ),
+                  ),
+                ),
+                new Text(_event.data[position].actor.name + " 关注了知识库"),
+              ],
+            ),
+          ],
+        ),
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(left:28,right: 16),
+              alignment: Alignment.centerLeft,
+              child: new Text("2019-1-1 12:22:11",style: TextStyle(color: Colors.grey,fontSize: 12),),
+            ),
+            new Divider(),
+            getWatchBookContent(position),
+          ],
+        )
+      ],
+    );
+  }
+
+  getWatchBookContent(int position) {
+    if(_event.data[position].subjects == null){
+      return ListTile(
+        onTap: (){
+          String id = _event.data[position].subject["id"].toString();
+          String title = _event.data[position].subject["name"];
+          Navigator.of(context).push(new MaterialPageRoute(builder: (BuildContext context){
+            return new BookView(id: id,title: title,);
+          }));
+        },
+        title: Text(_event.data[position].subject["name"],style: TextStyle(fontSize: 14)),
+        trailing: new Text(_event.data[position].subject['watches_count'].toString() + "人关注",style: TextStyle(color: Colors.grey),),
+      );
+    }else{
+      return MediaQuery.removePadding(context: context,
+          removeTop: true,
+          child: ListView.builder(itemBuilder: (BuildContext context,int mposition){
+        return ListTile(
+          onTap: (){
+            String id = _event.data[position].subjects[mposition]["id"].toString();
+            String title = _event.data[position].subjects[mposition]["name"];
+            Navigator.of(context).push(new MaterialPageRoute(builder: (BuildContext context){
+              return new BookView(id: id,title: title,);
+            }));
+          },
+          title: Text(_event.data[position].subjects[mposition]["name"],style: TextStyle(fontSize: 14),),
+          trailing: new Text(_event.data[position].subjects[mposition]['watches_count'].toString() + "人关注",style: TextStyle(color: Colors.grey),),
+        );
+      },itemCount: _event.data[position].subjects.length,shrinkWrap: true,physics: NeverScrollableScrollPhysics(),));
+    }
+  }
+
+  getFollowUser(int position) {
+    return new Column(
+      children: <Widget>[
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Row(
+              children: <Widget>[
+                new Container(
+                  margin: new EdgeInsets.only(right: 8),
+                  child:new Container(width: 20,height: 20,
+                    child: new CircleAvatar(
+                      backgroundImage: new Image.network(_event.data[position].actor.avatarUrl,).image,
+                    ),
+                  ),
+                ),
+                new Text(_event.data[position].actor.name + " 关注了 " + _event.data[position].subject["name"]),
+              ],
+            ),
+          ],
+        ),
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(left:28,right: 16),
+              alignment: Alignment.centerLeft,
+              child: new Text("2019-1-1 12:22:11",style: TextStyle(color: Colors.grey,fontSize: 12),),
+            ),
+            new Divider(),
+            ListTile(
+              onTap: (){},
+              leading: new CircleAvatar(
+                backgroundImage: new Image.network(_event.data[position].subject["avatar_url"],).image,
+              ),
+              title: Text(_event.data[position].subject["name"]),
+              subtitle: _event.data[position].subject["description"] == null ? null: Text(_event.data[position].subject["description"]) ,
+              trailing: Text(_event.data[position].subject["followers_count"].toString() + "人关注",style: TextStyle(color: Colors.grey),),
+            )
+          ],
+        )
+      ],
+    );
+  }
+
+  getLikeDoc(int position) {
+    return new Column(
+      children: <Widget>[
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Row(
+              children: <Widget>[
+                new Container(
+                  margin: new EdgeInsets.only(right: 8),
+                  child:new Container(width: 20,height: 20,
+                    child: new CircleAvatar(
+                      backgroundImage: new Image.network(_event.data[position].actor.avatarUrl,).image,
+                    ),
+                  ),
+                ),
+                new Text(_event.data[position].actor.name + "给 " + _event.data[position].subject["user"]["name"] + "的文档赞赏了稻谷"),
+              ],
+            )
+          ],
+        ),
+        new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            new Container(
+              margin: EdgeInsets.only(left: 28),
+              child: new Text(_getTimeFormat(_event.data[position].updatedAt),style: new TextStyle(color: Colors.grey,fontSize: 12),),
+            ),
+            new Divider(),
+            new Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: 8),
+              child: new Text(_event.data[position].subject['title'],style: new TextStyle(fontSize: 18,fontWeight: FontWeight.bold),),
+            ),
+            new Text(
+              _event.data[position].subject['description'],
+              softWrap: true,
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+            ),
+            new Container(
+              alignment: Alignment.centerRight,
+              width: double.infinity,
+              child: new FlatButton(
+                  onPressed: () {
+                    String uri = "https://www.yuque.com/"+ _event.data[position].book.user.login + "/"+_event.data[position].secondSubject['slug'] +  "/" + _event.data[position].subject['slug'];
+                    String title = _event.data[position].subject['title'];
+                    _readArticle(uri,title);
+                  },
+                  child: new Text("查看全文",style: new TextStyle(color: Colors.blue),))
+              ,)
+          ],
+        ),
+      ],
+    );
   }
 }
