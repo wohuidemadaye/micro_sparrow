@@ -126,6 +126,7 @@ class MainViewPresenter extends AbsPresenter implements  IPresenter{
     getMyInfo();
     getHistoryHttpData();
     getNesHttpData();
+    getNotification();
   }
 
   ///

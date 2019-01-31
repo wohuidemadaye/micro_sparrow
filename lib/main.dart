@@ -578,6 +578,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     setState(() {
       _event = null;
       _doc = null;
+      _userinfoEntity = null;
+      _notificationEntity = null;
       _userinfoEntity = userinfoEntity;
     });
     Navigator.of(context).pop();
@@ -619,7 +621,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }else if(_event.data[position].eventType == "follow_user"){
       return getFollowUser(position);
     }else if(_event.data[position].eventType == "like_doc"){
-      String eventType = _event.data[position].eventType;
       return getLikeDoc(position);
     }else{
       String eventType = _event.data[position].eventType;
