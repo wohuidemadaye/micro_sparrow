@@ -579,6 +579,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     setState(() {
       _event = null;
       _doc = null;
+      _userinfoEntity = null;
+      _notificationEntity = null;
       _userinfoEntity = userinfoEntity;
     });
     Navigator.of(context).pop();
