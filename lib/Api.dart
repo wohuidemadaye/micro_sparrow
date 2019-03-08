@@ -53,4 +53,8 @@ class Api{
     return "https://www.yuque.com/api/zsearch?p=1&q=$userName&scope=%2F&type=user";
   }
 
+  static String getUserInfo(String id){
+    return "https://www.yuque.com/api/v2/users/$id";
+  }
+
 }

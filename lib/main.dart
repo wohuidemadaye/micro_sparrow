@@ -8,6 +8,7 @@ import 'package:micro_sparrow/View/BookView.dart';
 import 'package:micro_sparrow/View/IMainView.dart';
 import 'package:micro_sparrow/View/NotificationView.dart';
 import 'package:micro_sparrow/View/TeamView.dart';
+import 'package:micro_sparrow/View/UserView.dart';
 import 'package:micro_sparrow/Widget/ColorLoader.dart';
 import 'package:micro_sparrow/Widget/ReadArticle.dart';
 import 'package:micro_sparrow/model/EventEntity.dart';
@@ -615,11 +616,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if(_event.data[position].eventType == "publish_doc"){
       return getPublishDoc(position);
     }else if(_event.data[position].eventType == "watch_book"){
-      return getWatchBook(position);
+      if(_event.data[position].subject!=null){
+        return getWatchBook(position);
+      }else{
+        return new Container();
+      }
     }else if(_event.data[position].eventType == "follow_user"){
       return getFollowUser(position);
     }else if(_event.data[position].eventType == "like_doc"){
-      String eventType = _event.data[position].eventType;
       return getLikeDoc(position);
     }else{
       String eventType = _event.data[position].eventType;
@@ -793,7 +797,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             ),
             new Divider(),
             ListTile(
-              onTap: (){},
+              onTap: (){
+                Navigator.of(context).push(new MaterialPageRoute(builder: (BuildContext context){
+                  return new UserView(id: _event.data[position].subject["id"].toString(),);
+                }));
+              },
               leading: new CircleAvatar(
                 backgroundImage: new Image.network(_event.data[position].subject["avatar_url"],).image,
               ),

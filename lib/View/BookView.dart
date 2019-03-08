@@ -90,7 +90,9 @@ class _BookPage extends State<BookView> implements IBookView {
         loading = false;
       });
     }else{
-      print(message);
+      setState(() {
+        loading = false;
+      });
     }
   }
 
@@ -242,7 +244,7 @@ class _BookPage extends State<BookView> implements IBookView {
           indicatorSize: TabBarIndicatorSize.label,
           tabs: <Widget>[
             Tab(text: "目录",),
-            Tab(text: "管理",)
+            Tab(text: "文章",)
           ]),
     );
   }

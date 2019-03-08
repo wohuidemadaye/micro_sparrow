@@ -53,7 +53,7 @@ class BookPresenter extends AbsPresenter implements IPresenter{
 
   void bodyToTree(body) {
     BookEntity _bookEntity = BookEntity.fromJson(body);
-    if(_bookEntity.book!=null){
+    if(_bookEntity.book!=null && _bookEntity.book.toc!=null){
       for(int i = 0;i<_bookEntity.book.toc.length;i++){
         TocTree tree = new TocTree();
         tree.title = _bookEntity.book.toc[i].title;
@@ -68,6 +68,8 @@ class BookPresenter extends AbsPresenter implements IPresenter{
         }
       }
       view.resultOfBook(true, _list,_bookEntity.search.scope);
+    }else{
+      view.resultOfBook(false, null, "错误");
     }
   }
 

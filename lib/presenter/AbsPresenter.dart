@@ -95,6 +95,28 @@ abstract class AbsPresenter{
     return result;
   }
 
+  Future<Map<String,dynamic>> postHttpCsrfData(String api,String body) async{
+    Map<String,String> hearders;
+    hearders = await _getWithCookieHeaders();
+    hearders["Content-Type"] = "application/json";
+    hearders['x-csrf-token'] = hearders["cookie"].split("ctoken=")[1].split(";")[0];
+    http.Response response = await http.post(Uri.parse(api),
+        body: body,
+        headers: hearders);
+    var result = json.decode(response.body);
+    return result;
+  }
+
+  Future<Map<String,dynamic>> deleteHttpCsrfData(String api,String body) async{
+    Map<String,String> hearders;
+    hearders = await _getWithCookieHeaders();
+    hearders['x-csrf-token'] = hearders["cookie"].split("ctoken=")[1].split(";")[0];
+    http.Response response = await http.delete(Uri.parse(api),
+        headers: hearders);
+    var result = json.decode(response.body);
+    return result;
+  }
+
   ///
   /// http delete 方法
   ///
